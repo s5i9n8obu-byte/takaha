@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>習慣トラッカー</title>
+<style>
+  :root {
+    --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;
+    --accent:#4f7cff;--accent2:#7c4fff;
+    --green:#2ecc71;--red:#e74c3c;
+    --text:#e8eaf2;--text2:#8a8fa8;--border:#2a2e42;
+    --gym:#ff6b6b;--market:#ffd93d;--python:#4ecdc4;--food:#ff9f43;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;min-height:100vh;padding:16px;}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  .logo{font-size:18px;font-weight:700;letter-spacing:-0.5px;}
+  .logo span{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .week-badge{font-size:12px;padding:4px 10px;border-radius:20px;font-weight:600;}
+  .day-shift{background:rgba(79,124,255,0.15);color:var(--accent);}
+  .night-shift{background:rgba(124,79,255,0.15);color:var(--accent2);}
+  .rest-badge{background:rgba(46,204,113,0.15);color:var(--green);}
+
+  .tab-nav{display:flex;gap:4px;margin-bottom:16px;background:var(--surface);border-radius:10px;padding:4px;}
+  .tab-btn{flex:1;padding:8px;border:none;background:transparent;color:var(--text2);font-size:12px;font-weight:500;border-radius:7px;cursor:pointer;transition:all 0.15s;}
+  .tab-btn.active{background:var(--surface2);color:var(--text);}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+
+  .date-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .date-nav button{background:var(--surface);border:1px solid var(--border);color:var(--text2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+  .date-display{flex:1;text-align:center;font-size:15px;font-weight:600;}
+  .date-display .dow{font-size:11px;color:var(--text2);font-weight:400;margin-top:2px;}
+
+  .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
+  .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 6px;text-align:center;}
+  .summary-card .num{font-size:20px;font-weight:700;line-height:1;margin-bottom:3px;}
+  .summary-card .lbl{font-size:10px;color:var(--text2);font-weight:500;}
+  .gym-color{color:var(--gym);}.market-color{color:var(--market);}.python-color{color:var(--python);}
+
+  .section-title{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+
+  .timeline{display:flex;flex-direction:column;gap:7px;margin-bottom:18px;}
+  .tl-item{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:12px 14px;display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;transition:all 0.15s;-webkit-tap-highlight-color:transparent;}
+  .tl-item.clickable{cursor:pointer;}
+  .tl-item.clickable:active{transform:scale(0.98);}
+  .tl-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;}
+  .tl-item.gym-item::before{background:var(--gym);}
+  .tl-item.market-item::before{background:var(--market);}
+  .tl-item.python-item::before{background:var(--python);}
+  .tl-item.food-item::before{background:var(--food);}
+  .tl-item.sleep-item::before{background:#6c7a8d;}
+  .tl-item.done.gym-item{background:rgba(255,107,107,0.1);border-color:rgba(255,107,107,0.3);}
+  .tl-item.done.market-item{background:rgba(255,217,61,0.08);border-color:rgba(255,217,61,0.3);}
+  .tl-item.done.python-item{background:rgba(78,205,196,0.08);border-color:rgba(78,205,196,0.3);}
+  .tl-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0;}
+  .tl-body{flex:1;min-width:0;}
+  .tl-name{font-size:14px;font-weight:600;margin-bottom:1px;}
+  .tl-time{font-size:12px;color:var(--text2);}
+  .tl-note{font-size:11px;color:var(--text2);margin-top:2px;opacity:0.8;}
+  .check-circle{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all 0.2s;}
+  .done.gym-item .check-circle{background:var(--gym);border-color:transparent;}
+  .done.market-item .check-circle{background:var(--market);border-color:transparent;}
+  .done.python-item .check-circle{background:var(--python);border-color:transparent;}
+  .python-mins-wrap{display:flex;align-items:center;gap:6px;margin-top:6px;}
+  .python-mins-wrap input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:5px 8px;width:64px;text-align:center;-webkit-appearance:none;}
+  .python-mins-wrap input:focus{outline:none;border-color:var(--python);}
+  .python-mins-wrap label{font-size:12px;color:var(--text2);}
+
+  .week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px;}
+  .week-day{text-align:center;}
+  .week-day .day-lbl{font-size:10px;color:var(--text2);margin-bottom:4px;font-weight:500;}
+  .week-day .day-dot{width:30px;height:30px;border-radius:8px;background:var(--surface);border:1px solid var(--border);margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;cursor:pointer;}
+  .week-day .day-dot.today{border-color:var(--accent);color:var(--accent);}
+  .week-day .day-dot.has-data{background:var(--surface2);}
+  .week-day .day-icons{font-size:8px;text-align:center;margin-top:3px;min-height:12px;}
+
+  .prog-item{margin-bottom:11px;}
+  .prog-header{display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;}
+  .prog-header .pl{font-weight:500;}.prog-header .pv{color:var(--text2);font-size:12px;}
+  .prog-bar{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+  .prog-fill{height:100%;border-radius:3px;transition:width 0.4s ease;}
+  .gym-fill{background:var(--gym);}.market-fill{background:var(--market);}.python-fill{background:var(--python);}
+
+  .streak-row{display:flex;gap:8px;margin-bottom:18px;}
+  .streak-card{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 6px;text-align:center;}
+  .streak-card .sn{font-size:24px;font-weight:800;line-height:1;margin-bottom:2px;}
+  .streak-card .sl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;}
+
+  /* 設定 */
+  .setting-group{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;}
+  .setting-group-title{font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+  .setting-block{margin-bottom:14px;}
+  .setting-block:last-child{margin-bottom:0;}
+  .setting-block-label{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px;}
+  .setting-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);}
+  .setting-row:last-child{border-bottom:none;padding-bottom:0;}
+  .setting-label{font-size:13px;color:var(--text2);}
+  .time-input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:5px 8px;width:88px;text-align:center;-webkit-appearance:none;}
+  .time-input:focus{outline:none;border-color:var(--accent);}
+  .num-input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:5px 8px;width:54px;text-align:center;-webkit-appearance:none;}
+  .num-input:focus{outline:none;border-color:var(--accent);}
+
+  .dow-row{display:flex;gap:5px;flex-wrap:wrap;}
+  .dow-chip{padding:5px 9px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text2);transition:all 0.15s;-webkit-tap-highlight-color:transparent;}
+  .dow-chip.active-gym{background:rgba(255,107,107,0.2);border-color:var(--gym);color:var(--gym);}
+  .dow-chip.active-python{background:rgba(78,205,196,0.2);border-color:var(--python);color:var(--python);}
+
+  .save-settings-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;color:white;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;}
+  .save-settings-btn:active{opacity:0.85;}
+  .reset-btn{width:100%;padding:10px;background:var(--surface);border:1px solid var(--border);color:var(--text2);font-size:13px;border-radius:8px;cursor:pointer;margin-top:8px;}
+
+  .memo-area{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;width:100%;color:var(--text);font-size:14px;resize:none;height:68px;font-family:inherit;margin-bottom:8px;}
+  .memo-area:focus{outline:none;border-color:var(--accent);}
+  .save-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;color:white;font-size:15px;font-weight:700;cursor:pointer;}
+  .save-btn:active{opacity:0.85;}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--green);color:white;padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;transition:transform 0.3s ease;z-index:1000;pointer-events:none;}
+  .toast.show{transform:translateX(-50%) translateY(0);}
+
+  @media(min-width:480px){body{max-width:440px;margin:0 auto;padding:24px 16px;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span>Habit</span>Log</div>
+  <div class="week-badge" id="shiftBadge"></div>
+</header>
+
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('today')">今日</button>
+  <button class="tab-btn" onclick="switchTab('week')">今週</button>
+  <button class="tab-btn" onclick="switchTab('settings')">設定</button>
+</div>
+
+<!-- 今日 -->
+<div class="tab-content active" id="tab-today">
+  <div class="date-nav">
+    <button onclick="changeDate(-1)">‹</button>
+    <div class="date-display"><div id="dateMain"></div><div class="dow" id="dateDow"></div></div>
+    <button onclick="changeDate(1)">›</button>
+  </div>
+  <div class="summary-grid">
+    <div class="summary-card"><div class="num gym-color" id="gymWeekCount">0</div><div class="lbl">ジム/週</div></div>
+    <div class="summary-card"><div class="num market-color" id="marketStreak">0</div><div class="lbl">相場🔥連続</div></div>
+    <div class="summary-card"><div class="num python-color" id="pythonWeekHours">0.0</div><div class="lbl">Python時間/週</div></div>
+  </div>
+  <div class="section-title">今日のスケジュール</div>
+  <div id="todayContent"></div>
+  <div class="section-title">メモ</div>
+  <textarea class="memo-area" id="memoText" placeholder="今日の気づき・メモ..."></textarea>
+  <button class="save-btn" onclick="saveDay()">保存する</button>
+</div>
+
+<!-- 今週 -->
+<div class="tab-content" id="tab-week">
+  <div class="section-title">今週の記録</div>
+  <div class="week-grid" id="weekGrid"></div>
+  <div class="section-title">週間進捗</div>
+  <div class="prog-item">
+    <div class="prog-header"><span class="pl">🏋️ ジム</span><span class="pv" id="gymProgress">0 / 4回</span></div>
+    <div class="prog-bar"><div class="prog-fill gym-fill" id="gymBar" style="width:0%"></div></div>
+  </div>
+  <div class="prog-item">
+    <div class="prog-header"><span class="pl">📈 相場分析</span><span class="pv" id="marketProgress">0 / 6日</span></div>
+    <div class="prog-bar"><div class="prog-fill market-fill" id="marketBar" style="width:0%"></div></div>
+  </div>
+  <div class="prog-item" style="margin-bottom:18px">
+    <div class="prog-header"><span class="pl">🐍 Python</span><span class="pv" id="pythonProgress">0 / 8時間</span></div>
+    <div class="prog-bar"><div class="prog-fill python-fill" id="pythonBar" style="width:0%"></div></div>
+  </div>
+  <div class="section-title">ストリーク</div>
+  <div class="streak-row">
+    <div class="streak-card"><div class="sn market-color" id="streakMarket">0</div><div class="sl">📈 連続日</div></div>
+    <div class="streak-card"><div class="sn python-color" id="streakPython">0</div><div class="sl">🐍 連続日</div></div>
+    <div class="streak-card"><div class="sn" id="streakTotal" style="color:var(--accent)">0</div><div class="sl">総記録日</div></div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="tab-content" id="tab-settings">
+  <div class="section-title">週間スケジュール設定</div>
+
+  <!-- 夜勤週 -->
+  <div class="setting-group">
+    <div class="setting-group-title"><span style="color:var(--accent2)">🌙</span> 夜勤週</div>
+
+    <div class="setting-block">
+      <div class="setting-block-label">🏋️ ジムをやる曜日</div>
+      <div class="dow-row" id="nightGymDays"></div>
+    </div>
+    <div class="setting-block">
+      <div class="setting-block-label">🐍 Pythonをやる曜日</div>
+      <div class="dow-row" id="nightPythonDays"></div>
+    </div>
+    <div class="setting-block" style="margin-bottom:0">
+      <div class="setting-block-label">⏰ 時間設定</div>
+      <div class="setting-row"><span class="setting-label">🍳 ご飯</span><input class="time-input" id="night_food_time" type="text" placeholder="8:00"></div>
+      <div class="setting-row"><span class="setting-label">📈 相場 開始</span><input class="time-input" id="night_market_start" type="text" placeholder="8:30"></div>
+      <div class="setting-row"><span class="setting-label">📈 相場 終了</span><input class="time-input" id="night_market_end" type="text" placeholder="10:30"></div>
+      <div class="setting-row"><span class="setting-label">🐍 Python 開始</span><input class="time-input" id="night_python_start" type="text" placeholder="10:30"></div>
+      <div class="setting-row"><span class="setting-label">🐍 Python 終了</span><input class="time-input" id="night_python_end" type="text" placeholder="12:00"></div>
+      <div class="setting-row"><span class="setting-label">🏋️ ジム 開始</span><input class="time-input" id="night_gym_start" type="text" placeholder="6:30"></div>
+      <div class="setting-row"><span class="setting-label">🏋️ ジム 終了</span><input class="time-input" id="night_gym_end" type="text" placeholder="7:50"></div>
+      <div class="setting-row"><span class="setting-label">😴 就寝</span><input class="time-input" id="night_sleep_time" type="text" placeholder="12:00"></div>
+    </div>
+  </div>
+
+  <!-- 昼勤週 -->
+  <div class="setting-group">
+    <div class="setting-group-title"><span style="color:var(--accent)">☀️</span> 昼勤週</div>
+
+    <div class="setting-block">
+      <div class="setting-block-label">🏋️ ジムをやる曜日</div>
+      <div class="dow-row" id="dayGymDays"></div>
+    </div>
+    <div class="setting-block">
+      <div class="setting-block-label">🐍 Pythonをやる曜日</div>
+      <div class="dow-row" id="dayPythonDays"></div>
+    </div>
+    <div class="setting-block" style="margin-bottom:0">
+      <div class="setting-block-label">⏰ 時間設定</div>
+      <div class="setting-row"><span class="setting-label">🍳 ご飯</span><input class="time-input" id="day_food_time" type="text" placeholder="19:00"></div>
+      <div class="setting-row"><span class="setting-label">📈 相場 開始</span><input class="time-input" id="day_market_start" type="text" placeholder="20:00"></div>
+      <div class="setting-row"><span class="setting-label">📈 相場 終了</span><input class="time-input" id="day_market_end" type="text" placeholder="22:00"></div>
+      <div class="setting-row"><span class="setting-label">🐍 Python 開始</span><input class="time-input" id="day_python_start" type="text" placeholder="22:00"></div>
+      <div class="setting-row"><span class="setting-label">🐍 Python 終了</span><input class="time-input" id="day_python_end" type="text" placeholder="23:00"></div>
+      <div class="setting-row"><span class="setting-label">🏋️ ジム 開始</span><input class="time-input" id="day_gym_start" type="text" placeholder="23:00"></div>
+      <div class="setting-row"><span class="setting-label">🏋️ ジム 終了</span><input class="time-input" id="day_gym_end" type="text" placeholder="0:20"></div>
+      <div class="setting-row"><span class="setting-label">😴 就寝</span><input class="time-input" id="day_sleep_time" type="text" placeholder="1:00"></div>
+    </div>
+  </div>
+
+  <!-- 週間目標 -->
+  <div class="setting-group">
+    <div class="setting-group-title"><span style="color:var(--accent)">🎯</span> 週間目標・その他</div>
+    <div class="setting-row"><span class="setting-label">📈 日曜の相場分析（時間）</span><input class="num-input" id="sunday_market_hours" type="number" min="0" max="8" placeholder="4"></div>
+    <div class="setting-row"><span class="setting-label">🏋️ ジム 週目標（回）</span><input class="num-input" id="gym_weekly_goal" type="number" min="1" max="7" placeholder="4"></div>
+    <div class="setting-row"><span class="setting-label">🐍 Python 週目標（時間）</span><input class="num-input" id="python_weekly_goal" type="number" min="1" max="20" placeholder="8"></div>
+  </div>
+
+  <button class="save-settings-btn" onclick="saveSettings()">設定を保存</button>
+  <button class="reset-btn" onclick="resetSettings()">設定をデフォルトに戻す</button>
+  <div style="height:8px"></div>
+  <button onclick="resetData()" style="width:100%;padding:10px;background:var(--surface);border:1px solid var(--border);color:var(--red);font-size:13px;border-radius:8px;cursor:pointer;">全記録データをリセット</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DKEY='habitlog_v7';
+const SKEY='habitlog_settings_v2';
+const DOW=['日','月','火','水','木','金','土'];
+const MON=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+let cur=new Date(); cur.setHours(0,0,0,0);
+
+// デフォルト設定（曜日は0=日〜6=土で統一）
+const DEFAULT_SETTINGS={
+  night:{
+    gymDays:[1,2,4],      // 月火木
+    pythonDays:[0,1,3,5], // 日月水金
+    food_time:'8:00',
+    market_start:'8:30',market_end:'10:30',
+    python_start:'10:30',python_end:'12:00',
+    gym_start:'6:30',gym_end:'7:50',
+    sleep_time:'12:00',
+  },
+  day:{
+    gymDays:[0,1,2,4,6],  // 日月火木土
+    pythonDays:[0,1,3,5,6],// 日月水金土
+    food_time:'19:00',
+    market_start:'20:00',market_end:'22:00',
+    python_start:'22:00',python_end:'23:00',
+    gym_start:'23:00',gym_end:'0:20',
+    sleep_time:'1:00',
+  },
+  sunday_market_hours:4,
+  gym_weekly_goal:4,
+  python_weekly_goal:8,
+};
+
+const dk=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const loadData=()=>{try{return JSON.parse(localStorage.getItem(DKEY))||{};}catch{return{};}};
+const storeData=d=>localStorage.setItem(DKEY,JSON.stringify(d));
+const loadSettings=()=>{
+  try{
+    const saved=JSON.parse(localStorage.getItem(SKEY));
+    if(!saved) return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+    const def=JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+    // 配列はsavedを優先
+    def.night={...def.night,...saved.night};
+    def.day={...def.day,...saved.day};
+    def.sunday_market_hours=saved.sunday_market_hours??def.sunday_market_hours;
+    def.gym_weekly_goal=saved.gym_weekly_goal??def.gym_weekly_goal;
+    def.python_weekly_goal=saved.python_weekly_goal??def.python_weekly_goal;
+    return def;
+  }catch{return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));}
+};
+const storeSettings=s=>localStorage.setItem(SKEY,JSON.stringify(s));
+
+const getRec=d=>{const data=loadData();return data[dk(d)]||{gym:false,market:false,python:false,pythonMin:0,memo:''};};
+const setRec=(d,r)=>{const data=loadData();data[dk(d)]=r;storeData(data);};
+const isNight=d=>{const base=new Date(2025,0,6);return Math.floor((d-base)/(7*864e5))%2===0;};
+
+function getSchedule(d){
+  const dow=d.getDay();
+  const night=isNight(d);
+  const s=loadSettings();
+  const cfg=night?s.night:s.day;
+
+  const hasGym=cfg.gymDays.includes(dow);
+  const hasPython=cfg.pythonDays.includes(dow);
+  const isSunday=dow===0;
+  const isSaturday=dow===6;
+  const isWeekend=isSunday||isSaturday;
+
+  const items=[];
+
+  // 日曜：相場分析（固定時間）を最初に入れる
+  if(isSunday&&s.sunday_market_hours>0){
+    items.push({key:'market',icon:'📈',name:'相場分析',time:`${s.sunday_market_hours}時間`,cls:'market-item',note:'日曜固定'});
+  }
+
+  // 土日はご飯・就寝なし、平日はご飯を最初に
+  if(!isWeekend){
+    items.push({key:'food',icon:'🍳',name:'ご飯',time:cfg.food_time,cls:'food-item',noCheck:true,note:night?'しっかり食べる':'帰宅してすぐ'});
+  }
+
+  // 相場（平日 or 土曜で日曜以外）
+  if(!isSunday){
+    // 土曜は相場なし（日曜に集中）
+    if(!isSaturday){
+      items.push({key:'market',icon:'📈',name:'相場分析',time:`${cfg.market_start}〜${cfg.market_end}`,cls:'market-item',note:'2時間固定'});
+    }
+  }
+
+  // 夜勤週：ジムは帰宅途中なので平日のみ先頭に
+  if(night&&hasGym&&!isWeekend){
+    // 帰宅途中なので食事・相場より前に挿入
+    const gymItem={key:'gym',icon:'🏋️',name:'ジム',time:`${cfg.gym_start}〜${cfg.gym_end}`,cls:'gym-item',note:'帰宅途中に寄る'};
+    items.unshift(gymItem);
+  }
+
+  // Python（平日 or 土日）
+  if(hasPython){
+    const pyTime=isWeekend?'自由な時間':`${cfg.python_start}〜${cfg.python_end}`;
+    items.push({key:'python',icon:'🐍',name:'Python',time:pyTime,cls:'python-item',python:true,note:'勉強'});
+  }
+
+  // ジム（昼勤週平日、または土日）
+  if((!night||isWeekend)&&hasGym){
+    const gymTime=isWeekend?'自由な時間':`${cfg.gym_start}〜${cfg.gym_end}`;
+    const gymNote=isWeekend?'1時間20分':(night?'帰宅途中に寄る':'1時間20分');
+    items.push({key:'gym',icon:'🏋️',name:'ジム',time:gymTime,cls:'gym-item',note:gymNote});
+  }
+
+  // 就寝（平日のみ）
+  if(!isWeekend){
+    items.push({key:'sleep',icon:'😴',name:'就寝',time:cfg.sleep_time,cls:'sleep-item',noCheck:true,note:'しっかり休む'});
+  }
+
+  // 何もない日
+  if(items.length===0||(items.length===1&&items[0].key==='sleep')){
+    return [{key:'rest',icon:'🎉',name:'完全フリー',time:'—',cls:'sleep-item',noCheck:true,note:'今日は自由な時間！'}];
+  }
+
+  return items;
+}
+
+function renderHeader(){
+  const d=cur;
+  document.getElementById('dateMain').textContent=`${MON[d.getMonth()]} ${d.getDate()}日`;
+  document.getElementById('dateDow').textContent=`${d.getFullYear()}年 ${DOW[d.getDay()]}曜日`;
+  const badge=document.getElementById('shiftBadge');
+  const dow=d.getDay();
+  if(dow===0||dow===6){badge.textContent='土日';badge.className='week-badge rest-badge';}
+  else{const n=isNight(d);badge.textContent=n?'夜勤週':'昼勤週';badge.className='week-badge '+(n?'night-shift':'day-shift');}
+}
+
+function renderToday(){
+  const rec=getRec(cur);
+  const sched=getSchedule(cur);
+  const html=sched.map(item=>{
+    if(item.noCheck){
+      return `<div class="tl-item ${item.cls}">
+        <div class="tl-icon">${item.icon}</div>
+        <div class="tl-body">
+          <div class="tl-name">${item.name}</div>
+          <div class="tl-time">${item.time}</div>
+          ${item.note?`<div class="tl-note">${item.note}</div>`:''}
+        </div></div>`;
+    }
+    const done=rec[item.key]||false;
+    const pyEx=item.python?`<div class="python-mins-wrap" onclick="event.stopPropagation()">
+      <input type="number" id="pythonMinutes" min="0" max="480" value="${rec.pythonMin||''}" placeholder="0"
+        oninput="savePythonTime()" onchange="savePythonTime()"><label>分</label></div>`:'';
+    return `<div class="tl-item ${item.cls} ${done?'done':''} clickable" onclick="toggleHabit('${item.key}')">
+      <div class="tl-icon">${item.icon}</div>
+      <div class="tl-body">
+        <div class="tl-name">${item.name}</div>
+        <div class="tl-time">${item.time}</div>
+        ${item.note?`<div class="tl-note">${item.note}</div>`:''}
+        ${pyEx}
+      </div>
+      <div class="check-circle">${done?'✓':''}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('todayContent').innerHTML=`<div class="timeline">${html}</div>`;
+}
+
+function toggleHabit(key){
+  const rec=getRec(cur);
+  rec[key]=!rec[key];
+  if(key==='python'&&rec[key]&&!rec.pythonMin)rec.pythonMin=60;
+  setRec(cur,rec);renderToday();updateStats();
+}
+
+function savePythonTime(){
+  const inp=document.getElementById('pythonMinutes');
+  if(!inp)return;
+  const mins=parseInt(inp.value)||0;
+  const rec=getRec(cur);
+  rec.pythonMin=mins;rec.python=mins>0;
+  setRec(cur,rec);updateStats();
+}
+
+function saveDay(){
+  const rec=getRec(cur);
+  rec.memo=document.getElementById('memoText').value;
+  setRec(cur,rec);showToast('✓ 保存しました');
+}
+
+function changeDate(delta){
+  cur=new Date(cur.getTime()+delta*864e5);
+  renderHeader();renderToday();
+  document.getElementById('memoText').value=getRec(cur).memo||'';
+  updateStats();
+}
+
+function weekDays(d){
+  const dow=d.getDay(),mon=new Date(d);
+  mon.setDate(d.getDate()-(dow===0?6:dow-1));
+  return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x;});
+}
+
+function calcStreak(habit,data){
+  let s=0;const d=new Date();d.setHours(0,0,0,0);
+  while(true){const r=data[dk(d)];if(r&&r[habit]){s++;d.setDate(d.getDate()-1);}else break;}
+  return s;
+}
+
+function updateStats(){
+  const data=loadData();const s=loadSettings();
+  const today=new Date();today.setHours(0,0,0,0);
+  const days=weekDays(cur);
+  let gymC=0,mktC=0,pyMin=0;
+  days.forEach(d=>{const r=data[dk(d)]||{};if(r.gym)gymC++;if(r.market)mktC++;pyMin+=r.pythonMin||0;});
+  document.getElementById('gymWeekCount').textContent=gymC;
+  document.getElementById('marketStreak').textContent=calcStreak('market',data);
+  document.getElementById('pythonWeekHours').textContent=(pyMin/60).toFixed(1);
+
+  const grid=document.getElementById('weekGrid');grid.innerHTML='';
+  days.forEach(d=>{
+    const r=data[dk(d)]||{};
+    const isT=dk(d)===dk(today);
+    const icons=(r.gym?'🏋️':'')+(r.market?'📈':'')+(r.python?'🐍':'');
+    const div=document.createElement('div');div.className='week-day';
+    div.innerHTML=`<div class="day-lbl">${DOW[d.getDay()]}</div>
+      <div class="day-dot${isT?' today':''}${(r.gym||r.market||r.python)?' has-data':''}"
+        onclick="jumpToDate('${dk(d)}')">${d.getDate()}</div>
+      <div class="day-icons">${icons}</div>`;
+    grid.appendChild(div);
+  });
+
+  const gGoal=s.gym_weekly_goal||4;
+  const pGoal=s.python_weekly_goal||8;
+  // 相場の週目標：土曜を除いた日数
+  const mktDays=days.filter(d=>d.getDay()!==6).length;
+  document.getElementById('gymProgress').textContent=`${gymC} / ${gGoal}回`;
+  document.getElementById('gymBar').style.width=Math.min(100,gymC/gGoal*100)+'%';
+  document.getElementById('marketProgress').textContent=`${mktC} / ${mktDays}日`;
+  document.getElementById('marketBar').style.width=Math.min(100,mktC/mktDays*100)+'%';
+  document.getElementById('pythonProgress').textContent=`${(pyMin/60).toFixed(1)} / ${pGoal}時間`;
+  document.getElementById('pythonBar').style.width=Math.min(100,pyMin/(pGoal*60)*100)+'%';
+
+  document.getElementById('streakMarket').textContent=calcStreak('market',data);
+  document.getElementById('streakPython').textContent=calcStreak('python',data);
+  document.getElementById('streakTotal').textContent=Object.keys(data).length;
+}
+
+function jumpToDate(key){
+  const [y,m,d]=key.split('-').map(Number);
+  cur=new Date(y,m-1,d);
+  switchTab('today');renderHeader();renderToday();
+  document.getElementById('memoText').value=getRec(cur).memo||'';
+  updateStats();
+}
+
+// ---- 設定UI ----
+let draft={};
+
+function buildDowChips(containerId,selectedDays,colorClass,onChange){
+  const el=document.getElementById(containerId);if(!el)return;
+  el.innerHTML='';
+  // 日〜土（0〜6）全て表示
+  [0,1,2,3,4,5,6].forEach(i=>{
+    const chip=document.createElement('div');
+    chip.className='dow-chip'+(selectedDays.includes(i)?' '+colorClass:'');
+    chip.textContent=DOW[i];
+    chip.onclick=()=>{
+      const idx=selectedDays.indexOf(i);
+      if(idx>=0)selectedDays.splice(idx,1);else selectedDays.push(i);
+      chip.className='dow-chip'+(selectedDays.includes(i)?' '+colorClass:'');
+      onChange(selectedDays);
+    };
+    el.appendChild(chip);
+  });
+}
+
+function renderSettings(){
+  const s=loadSettings();
+  draft=JSON.parse(JSON.stringify(s));
+
+  buildDowChips('nightGymDays',draft.night.gymDays,'active-gym',v=>draft.night.gymDays=v);
+  buildDowChips('nightPythonDays',draft.night.pythonDays,'active-python',v=>draft.night.pythonDays=v);
+  buildDowChips('dayGymDays',draft.day.gymDays,'active-gym',v=>draft.day.gymDays=v);
+  buildDowChips('dayPythonDays',draft.day.pythonDays,'active-python',v=>draft.day.pythonDays=v);
+
+  const fields=[
+    ['night_food_time',s.night.food_time],
+    ['night_market_start',s.night.market_start],['night_market_end',s.night.market_end],
+    ['night_python_start',s.night.python_start],['night_python_end',s.night.python_end],
+    ['night_gym_start',s.night.gym_start],['night_gym_end',s.night.gym_end],
+    ['night_sleep_time',s.night.sleep_time],
+    ['day_food_time',s.day.food_time],
+    ['day_market_start',s.day.market_start],['day_market_end',s.day.market_end],
+    ['day_python_start',s.day.python_start],['day_python_end',s.day.python_end],
+    ['day_gym_start',s.day.gym_start],['day_gym_end',s.day.gym_end],
+    ['day_sleep_time',s.day.sleep_time],
+    ['sunday_market_hours',s.sunday_market_hours],
+    ['gym_weekly_goal',s.gym_weekly_goal],
+    ['python_weekly_goal',s.python_weekly_goal],
+  ];
+  fields.forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.value=val??'';});
+}
+
+function saveSettings(){
+  const tf=id=>document.getElementById(id)?.value||'';
+  const ni=id=>parseInt(document.getElementById(id)?.value)||0;
+  draft.night.food_time=tf('night_food_time');
+  draft.night.market_start=tf('night_market_start');draft.night.market_end=tf('night_market_end');
+  draft.night.python_start=tf('night_python_start');draft.night.python_end=tf('night_python_end');
+  draft.night.gym_start=tf('night_gym_start');draft.night.gym_end=tf('night_gym_end');
+  draft.night.sleep_time=tf('night_sleep_time');
+  draft.day.food_time=tf('day_food_time');
+  draft.day.market_start=tf('day_market_start');draft.day.market_end=tf('day_market_end');
+  draft.day.python_start=tf('day_python_start');draft.day.python_end=tf('day_python_end');
+  draft.day.gym_start=tf('day_gym_start');draft.day.gym_end=tf('day_gym_end');
+  draft.day.sleep_time=tf('day_sleep_time');
+  draft.sunday_market_hours=ni('sunday_market_hours')||4;
+  draft.gym_weekly_goal=ni('gym_weekly_goal')||4;
+  draft.python_weekly_goal=ni('python_weekly_goal')||8;
+  storeSettings(draft);
+  renderToday();updateStats();
+  showToast('✓ 設定を保存しました');
+}
+
+function resetSettings(){
+  if(confirm('設定をデフォルトに戻しますか？')){
+    localStorage.removeItem(SKEY);
+    renderSettings();renderToday();updateStats();
+    showToast('設定をリセットしました');
+  }
+}
+
+function resetData(){
+  if(confirm('全記録データを削除しますか？この操作は取り消せません。')){
+    localStorage.removeItem(DKEY);renderToday();updateStats();
+    showToast('データをリセットしました');
+  }
+}
+
+function switchTab(name){
+  const tabs=['today','week','settings'];
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===name));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='settings')renderSettings();
+  else updateStats();
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg||'✓ 保存しました';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+renderHeader();renderToday();
+document.getElementById('memoText').value=getRec(cur).memo||'';
+updateStats();
+</script>
+</body>
+</html>
